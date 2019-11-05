@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:jms="http://www.mulesoft.org/schema/mule/jms"
+	xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc"
+	xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:mule-ss="http://www.mulesoft.org/schema/mule/spring-security"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:context="http://www.springframework.org/schema/context" xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"	
+    xmlns:ss="http://www.springframework.org/schema/security"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/spring-security http://www.mulesoft.org/schema/mule/spring-security/3.1/mule-spring-security.xsd
+http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-3.0.xsd
+http://www.mulesoft.org/schema/mule/spring-security http://www.mulesoft.org/schema/mule/spring-security/current/mule-spring-security.xsd
+http://www.mulesoft.org/schema/mule/apikit http://www.mulesoft.org/schema/mule/apikit/current/mule-apikit.xsd
+http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
+
+	<!-- security config -->
+	<spring:beans>
+		<ss:authentication-manager alias="authenticationManager">
+			<ss:authentication-provider>
+				<ss:user-service id="userService">
+					<ss:user name="${ms3.user}" password="${ms3.password}" authorities="ROLE_ADMIN" />
+					<ss:user name="user" password="user" authorities="ROLE_USER" />
+				</ss:user-service>
+			</ss:authentication-provider>
+		</ss:authentication-manager>
+	</spring:beans>
+	
+	<mule-ss:security-manager name="muleSecurityManager"
+		doc:name="Spring Security Provider">
+		<mule-ss:delegate-security-provider
+			name="memory-provider" delegate-ref="authenticationManager" />
+	</mule-ss:security-manager>
+	
+    
+    <apikit:config name="api-config" raml="api.raml" consoleEnabled="false" doc:name="Router" keepRamlBaseUri="false">
+        <apikit:flow-mapping resource="/address" action="post" content-type="application/json" flow-ref="implementationFlow-POST"/>
+        <apikit:flow-mapping resource="/address/{addressId}" action="put" content-type="application/json" flow-ref="implementationFlow-PUT"/>
+        <apikit:flow-mapping resource="/address/{addressId}" action="delete" flow-ref="implementationFlow-DELETE"/>
+        <apikit:flow-mapping resource="/address/{addressId}" action="get" flow-ref="implementationFlow-GET"/>
+    </apikit:config>
+    <context:property-placeholder location="application-${mule.env}.properties"/>
+  	<db:mysql-config name="MySQL_Configuration" host="${db.host}" port="${db.port}" user="${db.user}" password="${db.password}" database="${db.name}" doc:name="MySQL Configuration"/>
+    <catch-exception-strategy name="doc-globalCatch_Exception_Strategy">
+        <logger message="Exception Log Process" level="INFO" doc:name="Log Exception"/>
+
+        <flow-ref name="globalSub_Flow" doc:name="globalSub_Flow"/>
+
+    </catch-exception-strategy>
+    
+    
+    <sub-flow name="globalSub_Flow">
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+    "status": flowVars.status,
+    "error": {
+        "errorCode": flowVars.errorCode,
+        "errorType": flowVars.errorType,
+        "errorMessage": flowVars.errorMessage
+    }
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="Global Flow Final Response : #[payload]" level="INFO" doc:name="Logger"/>
+
+    </sub-flow>
+
+</mule>

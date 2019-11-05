@@ -1,0 +1,8 @@
+{
+    "status": "failure",
+    "error": {
+        "errorCode": "401",
+        "errorType": "Security",
+        "errorMessage": "Add Authorization key in header"
+    }
+}

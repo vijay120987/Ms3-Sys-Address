@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+    <flow name="implementationFlow-GET">
+        <logger message="GET Started" level="INFO" doc:name="Logger"/>
+        <expression-component doc:name="Set Error Var"><![CDATA[flowVars.status = "failure"; 
+flowVars.errorCode = "500";
+flowVars.errorType = "Internal Server Error";
+flowVars.errorMessage = "Database Service call failed";]]></expression-component>
+        <db:select config-ref="MySQL_Configuration" doc:name="Query Address">
+            <db:parameterized-query><![CDATA[select * from Address where IdentificationId=#[flowVars.addressId]]]></db:parameterized-query>
+        </db:select>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <exception-strategy ref="doc-globalCatch_Exception_Strategy" doc:name="Reference Exception Strategy"/>
+    </flow>
+     
+    <flow name="implementationFlow-POST">
+        <logger message="POST Started " level="INFO" doc:name="Logger"/>
+        <dw:transform-message doc:name="Transform Message" metadata:id="2a2f19c2-4fc6-4814-be44-c3f33d0dacac">
+            <dw:input-payload doc:sample="sample_data\json.json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload.Address map ((address , indexOfAddress) -> {
+		type: address.'type',
+		number: address.number,
+		street: address.street,
+		Unit: address.Unit,
+		City: address.City,
+		State: address.State,
+		zipcode: address.zipcode,
+		identificationId: address.identificationId
+})]]></dw:set-payload>
+
+        </dw:transform-message>
+        <expression-component doc:name="Set Error Var"><![CDATA[flowVars.status = "failure"; 
+flowVars.errorCode = "500";
+flowVars.errorType = "Internal Server Error";
+flowVars.errorMessage = "Database Service call failed";]]></expression-component>
+        <logger message="&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;#[payload]" level="INFO" doc:name="Logger"/>
+        <foreach doc:name="For Each">
+            <db:insert config-ref="MySQL_Configuration" doc:name="Insert Address">
+                <db:parameterized-query><![CDATA[insert into address(type,number,street,Unit,City,State,zipcode,IdentificationId) values(#[payload.type], #[payload.number], #[payload.street], #[payload.Unit], #[payload.City], #[payload.State], #[payload.zipcode], #[payload.identificationId])]]></db:parameterized-query>
+
+
+            </db:insert>
+        </foreach>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+   "status": "success"
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <exception-strategy ref="doc-globalCatch_Exception_Strategy" doc:name="Reference Exception Strategy"/>
+    </flow>
+    <flow name="implementationFlow-PUT">
+        <logger level="INFO" doc:name="Logger" message="PUT Started"/>
+        <dw:transform-message doc:name="Transform Message" metadata:id="34e2f85b-e803-4613-94fc-cd3ea1db5d76">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload.Address map ((address , indexOfAddress) -> {
+		type: address.'type',
+		number: address.number,
+		street: address.street,
+		Unit: address.Unit,
+		City: address.City,
+		State: address.State,
+		zipcode: address.zipcode
+	})]]></dw:set-payload>
+
+        </dw:transform-message>
+        <expression-component doc:name="Set Error Var"><![CDATA[flowVars.status = "failure"; 
+flowVars.errorCode = "500";
+flowVars.errorType = "Internal Server Error";
+flowVars.errorMessage = "Database Service call failed";]]></expression-component>
+
+        <foreach doc:name="For Each">
+            <db:update config-ref="MySQL_Configuration" doc:name="Update Address">
+                <db:parameterized-query><![CDATA[update Address set type=#[payload.type], number=#[payload.number], street=#[payload.street], Unit=#[payload.Unit], City=#[payload.City], State=#[payload.State],zipcode=#[payload.zipcode] where IdentificationId=#[flowVars.addressId]]]></db:parameterized-query>
+
+            </db:update>
+        </foreach>
+
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"status" : "updated"
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <exception-strategy ref="doc-globalCatch_Exception_Strategy" doc:name="Reference Exception Strategy"/>
+    </flow>
+    <flow name="implementationFlow-DELETE">
+        <logger level="INFO" doc:name="Logger" message="DELETE Started"/>
+        <expression-component doc:name="Set Error Var"><![CDATA[flowVars.status = "failure"; 
+flowVars.errorCode = "500";
+flowVars.errorType = "Internal Server Error";
+flowVars.errorMessage = "Database Service call failed";]]></expression-component>
+
+        <db:delete config-ref="MySQL_Configuration" doc:name="Delete Address">
+            <db:parameterized-query><![CDATA[delete from Address where IdentificationId=#[flowVars.addressId]]]></db:parameterized-query>
+
+        </db:delete>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	status: "success"
+}]]></dw:set-payload>
+        </dw:transform-message>
+
+        <exception-strategy ref="doc-globalCatch_Exception_Strategy" doc:name="Reference Exception Strategy"/>
+    </flow>
+</mule>
